@@ -1,0 +1,16 @@
+/**
+ * 传感器收集列表
+ */
+module.exports = [{
+	CID : 'C6F9ED246BB000017FE52A9A7400AD50',
+	NAME : 'collector-1'
+},{
+	CID : 'C6F9ED6F280000016B26A06015501D1A',
+	NAME : 'collector-2'
+},{
+	CID : 'C6F9ED79A78000017C1490581870115A',
+	NAME : 'collector-3'
+},{
+	CID : 'C6F9ED7E8F9000019EF212F219761C8D',
+	NAME : 'collector-4'
+}];

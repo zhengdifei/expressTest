@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8"/>
+	<title>collectorSender页面</title>
+	<link rel="stylesheet" href="stylesheets/bootstrap.css">
+    <script src="javascripts/jquery.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+    	$(function(){
+    		var successMsgDiv = $('#successMsg');
+    		var deleteMsgDiv = $('#deleteMsg');
+    		var error = $('#error');
+    		var messageDiv = $('#message');
+    		var countDiv = $('#count');
+    		var count = 0;
+    		var sensorHtml = null;
+    		var sequence = 0;//序列数
+    		var sequenceObj = {};//序列对象
+    		
+    		socket = io.connect();
+	    	//收到server的连接确认
+		    socket.on('collectorAuth',function(){
+				messageDiv.html('<span class="label label-success">(身份验证通过)</span>');
+				$('#startBtn').removeAttr("disabled");
+				$('#endBtn').removeAttr("disabled");
+		    });
+		    
+		    socket.on('updateTemplateVersion',function(msg){
+    	 		messageDiv.html('<span class="label label-warning">服务器更新了验证模板,模板版本信息：'+msg+'</span><span>请重新启动发送服务</span>');
+    	 		
+    	 	});
+    	 	
+		    socket.on('collectorAuthError',function(msg){
+    	 		error.prepend('<span class="label label-danger">'+msg+'</span><br/>');
+    	 	})
+    	 	
+    	 	socket.on('collecterDataNum',function(msgObj){
+    	 	    countDiv.html('<span class="label label-warning">收集器名称：<span class="badge">'+ msgObj['NAME'] +'</span>&nbsp;&nbsp;&nbsp;&nbsp;数据量：<span class="badge">'+ msgObj['NUM'] +'</span></span>');
+    	 	})
+    	 	
+    	 	socket.on('collecterData',function(collectorDataMsg){
+    	 		var dataHtml = [];
+    	 		dataHtml.push("<tr>");
+    	 		dataHtml.push("<td>"+ new Date(collectorDataMsg["startTime"]).format("hh:mm:ss") +"</td>");
+    	 		dataHtml.push("<td>"+ new Date(collectorDataMsg["startTime"]).format("hh:mm:ss") +"</td>");
+    	 		dataHtml.push("<td style='color:red'>"+ collectorDataMsg["num"] +"</td>");
+    	 		dataHtml.push("<td>"+ collectorDataMsg["fsize"] +"</td>");
+    	 		dataHtml.push("<td>"+ collectorDataMsg["csize"] +"</td>");
+    	 		dataHtml.push("<td style='color:green'>"+ collectorDataMsg["zsize"] +"</td>");
+    	 		dataHtml.push("</tr>");
+    	 		
+    	 		successMsgDiv.prepend(dataHtml.join(""));
+    	 	})
+    	 	
+    	 	socket.on('collecterDataError',function(msg){
+    	 		error.prepend('<span class="label label-danger">发送数据出错：'+ msg +'</span><br>');
+    	 	})
+    	 	
+    	 	socket.on('deleteCollectorData',function(delDataMsg){
+    	 	 	//构建传感器删除显示
+		        var deleteSensorDiv = $('#' + delDataMsg['SID']);
+		        if(deleteSensorDiv.length){
+			        var dataHtml = [];
+			        dataHtml.push("<td>"+ sequenceObj[delDataMsg['SID']] +"</td>");
+	    	 		dataHtml.push("<td>"+ delDataMsg['SNAME'] +"</td>");
+	    	 		dataHtml.push("<td>"+ new Date(delDataMsg["thisTime"]).format("hh:mm:ss") +"</td>");
+	    	 		dataHtml.push("<td style='color:green'>"+ delDataMsg['num'] +"</td>");
+		        	
+		        	deleteSensorDiv.html(dataHtml.join(""));
+		        }else{
+		        	sequence += 1;
+		       		sequenceObj[delDataMsg['SID']] = sequence;
+		       		
+			        var dataHtml = [];
+	    	 		dataHtml.push("<tr id='"+ delDataMsg['SID'] +"'>");
+	    	 		dataHtml.push("<td>"+ sequence +"</td>");
+	    	 		dataHtml.push("<td>"+ delDataMsg['SNAME'] +"</td>");
+	    	 		dataHtml.push("<td>"+ new Date(delDataMsg["thisTime"]).format("hh:mm:ss") +"</td>");
+	    	 		dataHtml.push("<td style='color:green'>"+ delDataMsg['num'] +"</td>");
+	    	 		dataHtml.push("</tr>");
+	    	 		
+	    	 		deleteMsgDiv.prepend(dataHtml.join(""));
+		        }
+       	 	})
+    	 	
+    	 	socket.on('deleteCollectorDataError',function(data){
+    	 		error.prepend('<span class="label label-danger">删除'+ data['SNAME'] +'的一条数据失败，数据_ID:'+ data['_id'] +'<span><br/>');
+    	 	})
+    	 	
+    	 	$.ajax({url : '/collectorSender/auth',success:function(data){
+	    	}});
+    	});
+    	 
+    	function start(){
+    		var IP = $('input[name="IP"]').val();
+    		var PORT = $('input[name="PORT"]').val();
+    		var NUM = $('input[name="NUM"]').val();
+    		var INTERVAL = $('input[name="INTERVAL"]').val();
+	    	$.ajax({url : '/collectorSender/start',data:{'IP':IP,'PORT':PORT,'NUM':NUM,'INTERVAL':INTERVAL},success:function(data){
+	    	}});
+	    }
+	    
+	    function end(){
+	    	$.ajax({url : '/collectorSender/end',success:function(data){
+	    	}});
+	    }
+	    
+	    // 对Date的扩展，将 Date 转化为指定格式的String 
+		// 月(M)、日(d)、小时(h)、分(m)、秒(s)、季度(q) 可以用 1-2 个占位符， 
+		// 年(y)可以用 1-4 个占位符，毫秒(S)只能用 1 个占位符(是 1-3 位的数字) 
+		// 例子： 
+		// (new Date()).format("yyyy-MM-dd hh:mm:ss.S") ==> 2006-07-02 08:09:04.423 
+		// (new Date()).format("yyyy-M-d h:m:s.S")      ==> 2006-7-2 8:9:4.18 
+		Date.prototype.format = function(fmt) 
+		{ //author: meizz 
+		  var o = { 
+		    "M+" : this.getMonth()+1,                 //月份 
+		    "d+" : this.getDate(),                    //日 
+		    "h+" : this.getHours(),                   //小时 
+		    "m+" : this.getMinutes(),                 //分 
+		    "s+" : this.getSeconds(),                 //秒 
+		    "q+" : Math.floor((this.getMonth()+3)/3), //季度 
+		    "S"  : this.getMilliseconds()             //毫秒 
+		  }; 
+		  if(/(y+)/.test(fmt)) 
+		    fmt=fmt.replace(RegExp.$1, (this.getFullYear()+"").substr(4 - RegExp.$1.length)); 
+		  for(var k in o) 
+		    if(new RegExp("("+ k +")").test(fmt)) 
+		  		fmt = fmt.replace(RegExp.$1, (RegExp.$1.length==1) ? (o[k]) : (("00"+ o[k]).substr((""+ o[k]).length))); 
+		  return fmt; 
+		}
+    </script>
+</head>
+<body class="container">
+	<div class="row" style="text-align: center;">
+		<h1><span class="col-md-4"></span>
+		<span class="col-md-5">收集器发送数据控制台</span></h1>
+		<h3><span id="message" class="col-md-3"></span></h3>
+	</div>
+	
+	<div class="row">
+		<h3><span id="count" class="col-md-offset-5"></span></h3>
+	</div>
+	
+	<div class="row">
+		<div class="panel panel-primary col-md-6">
+		   <div class="panel-heading">
+		      <h3 class="panel-title">ProducerServer接收配置信息</h3>
+		   </div>
+		   <div class="panel-body">
+		     <form method="post" role="form" class="form-horizontal">
+				<div  class="form-group"><label class="col-sm-4 control-label">数据服务器IP:</label><div class="col-sm-6"><input type="text" class="form-control" name="IP" value="127.0.0.1"/></div></div>
+				<div class="form-group"><label class="col-sm-4 control-label">数据服务器Port:</label><div class="col-sm-6"><input type="text" class="form-control" name="PORT" value="8080"/></div></div>
+			</form>
+		   </div>
+		</div>
+		<div class="panel panel-primary col-md-6">
+		   <div class="panel-heading">
+		      <h3 class="panel-title">collectorSender发送配置信息</h3>
+		   </div>
+		   <div class="panel-body">
+		     <form method="post" role="form" class="form-horizontal">
+		     	<div class="form-group"><label class="col-sm-4 control-label">每次发送数量:</label><div class="col-sm-6"><input class="form-control" type="text" name="NUM"/></div></div>
+				<div class="form-group"><label class="col-sm-4 control-label">发送间隔时间(ms):</label><div class="col-sm-6"><input class="form-control" type="text" name="INTERVAL"/></div></div>
+			</form>
+		   </div>
+		</div>
+	</div>
+	
+	<div class="row">
+		<div class="col-sm-offset-5"><input id="startBtn" type="button" class="btn btn-default btn-success" onclick="start()" disabled="disabled" value="启动"/><input id="endBtn" type="button" class="btn btn-default btn-info" onclick="end()" disabled="disabled" value="停止"/></div>
+	</div>
+	
+	<div class="row">
+		<div class="panel panel-success col-md-6">
+		   <div class="panel-heading">
+		      <h3 class="panel-title">发送成功信息窗口</h3>
+		   </div>
+		   <div class="panel-body">
+			 <table class="table table-hover table-bordered" style="text-align: center;">
+				<thead>
+					<tr>
+						<th>开始时间</th>
+						<th>截止时间</th>
+						<th>发送数量</th>
+						<th>原始大小b</th>
+						<th>压缩大小b</th>
+						<th>发送大小b</th>
+					</tr>
+				</thead>
+				<tbody id="successMsg">
+				
+				</tbody>
+			 </table>
+		   </div>
+		</div>
+		<div class="panel panel-info col-md-6">
+		   <div class="panel-heading">
+		      <h3 class="panel-title">删除本地信息窗口</h3>
+		   </div>
+		   <div class="panel-body">
+		      <table class="table table-hover table-bordered" style="text-align: center;">
+				<thead>
+					<tr>
+						<th>序号</th>
+						<th>传感器名称</th>
+						<th>截止时间</th>
+						<th>删除数量</th>
+					</tr>
+				</thead>
+				<tbody id="deleteMsg">
+				
+				</tbody>
+			 </table>
+		   </div>
+		</div>
+	</div>
+	<div class="panel panel-danger">
+		   <div class="panel-heading">
+		      	<h3 class="panel-title">错误信息窗口</h3>
+		   </div>
+		   <div class="panel-body">
+		   		<div id="error" style="color:red;"></div>
+		   </div>
+	</div>
+</body>
+</html>
